@@ -9,8 +9,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppContext } from '../context/AppContext';
-import { getSuggestedSession } from '../data/sessions';
+import { getSuggestedSession, getSessionById } from '../data/sessions';
 import { FreeSlot, MicroSession } from '../types';
+import {
+  requestNotificationPermissions,
+  scheduleNotificationsForSlots,
+  addNotificationResponseListener,
+} from '../utils/notifications';
 
 const COLORS = {
   primary: '#6C63FF',
@@ -32,10 +37,25 @@ export const TodayScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    setupNotifications();
     loadSlots();
+
+    // Listen for notification taps to navigate to workout
+    const subscription = addNotificationResponseListener((sessionId) => {
+      const session = getSessionById(sessionId);
+      if (session) {
+        navigation.navigate('Workout', { session });
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
-  const loadSlots = () => {
+  const setupNotifications = async () => {
+    await requestNotificationPermissions();
+  };
+
+  const loadSlots = async () => {
     const slots = getFreeSlots();
     setFreeSlots(slots);
 
@@ -48,6 +68,9 @@ export const TodayScreen: React.FC = () => {
       }
     }
     setSuggestedSessions(suggestions);
+
+    // Schedule notifications for upcoming free slots
+    await scheduleNotificationsForSlots(slots, settings.maxPromptsPerDay);
   };
 
   const onRefresh = () => {

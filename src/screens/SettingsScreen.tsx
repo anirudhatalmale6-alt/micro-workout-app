@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,17 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useAppContext } from '../context/AppContext';
+import {
+  useOutlookAuth,
+  exchangeCodeForTokens,
+  isAuthenticated,
+  clearTokens,
+  fetchCalendarEvents,
+  getRedirectUri,
+} from '../utils/microsoftAuth';
 
 const COLORS = {
   primary: '#6C63FF',
@@ -31,6 +39,7 @@ export const SettingsScreen: React.FC = () => {
     updateProgress,
     manualSchedule,
     setManualSchedule,
+    setCalendarEvents,
   } = useAppContext();
 
   const [workingHoursStart, setWorkingHoursStart] = useState(settings.workingHoursStart);
@@ -49,6 +58,97 @@ export const SettingsScreen: React.FC = () => {
   // Manual schedule
   const [newMeetingStart, setNewMeetingStart] = useState('');
   const [newMeetingEnd, setNewMeetingEnd] = useState('');
+
+  // Calendar auth state
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const { request, response, promptAsync } = useOutlookAuth();
+
+  // Check auth status on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  // Handle OAuth response
+  useEffect(() => {
+    if (response?.type === 'success' && response.params.code) {
+      handleAuthResponse(response.params.code, request?.codeVerifier || '');
+    } else if (response?.type === 'error') {
+      setIsConnecting(false);
+      Alert.alert('Error', 'Failed to connect to Outlook. Please try again.');
+    }
+  }, [response]);
+
+  const checkAuthStatus = async () => {
+    const authenticated = await isAuthenticated();
+    setIsCalendarConnected(authenticated);
+    if (authenticated) {
+      updateSettings({ calendarConnected: true, useManualSchedule: false });
+    }
+  };
+
+  const handleAuthResponse = async (code: string, codeVerifier: string) => {
+    try {
+      const tokens = await exchangeCodeForTokens(code, codeVerifier);
+      if (tokens) {
+        setIsCalendarConnected(true);
+        updateSettings({ calendarConnected: true, useManualSchedule: false });
+        Alert.alert('Success', 'Outlook calendar connected! Your meetings will now sync automatically.');
+        syncCalendar();
+      } else {
+        Alert.alert('Error', 'Failed to complete authentication.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to connect calendar.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const connectOutlook = async () => {
+    setIsConnecting(true);
+    try {
+      await promptAsync();
+    } catch (error) {
+      setIsConnecting(false);
+      Alert.alert('Error', 'Failed to start authentication.');
+    }
+  };
+
+  const disconnectOutlook = async () => {
+    Alert.alert(
+      'Disconnect Calendar',
+      'Are you sure you want to disconnect your Outlook calendar?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            await clearTokens();
+            setIsCalendarConnected(false);
+            updateSettings({ calendarConnected: false, useManualSchedule: true });
+            setCalendarEvents([]);
+          },
+        },
+      ]
+    );
+  };
+
+  const syncCalendar = async () => {
+    setIsSyncing(true);
+    try {
+      const events = await fetchCalendarEvents(new Date());
+      setCalendarEvents(events);
+      Alert.alert('Synced', `Found ${events.length} events for today.`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to sync calendar. Please try reconnecting.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const saveScheduleSettings = () => {
     updateSettings({
@@ -117,6 +217,53 @@ export const SettingsScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Outlook Calendar Integration */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Outlook Calendar</Text>
+        <Text style={styles.sectionSubtitle}>
+          Connect your calendar to automatically find free workout slots
+        </Text>
+
+        {isCalendarConnected ? (
+          <View>
+            <View style={styles.connectedBadge}>
+              <Text style={styles.connectedText}>✓ Connected to Outlook</Text>
+            </View>
+            <View style={styles.calendarActions}>
+              <TouchableOpacity
+                style={styles.syncButton}
+                onPress={syncCalendar}
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.syncButtonText}>Sync Now</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.disconnectButton}
+                onPress={disconnectOutlook}
+              >
+                <Text style={styles.disconnectButtonText}>Disconnect</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={connectOutlook}
+            disabled={isConnecting || !request}
+          >
+            {isConnecting ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.connectButtonText}>Connect Outlook Calendar</Text>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Schedule Settings */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Schedule Settings</Text>
@@ -183,49 +330,51 @@ export const SettingsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Manual Schedule */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Meetings (Manual)</Text>
-        <Text style={styles.sectionSubtitle}>
-          Add your meetings to find free workout slots
-        </Text>
+      {/* Manual Schedule - only show if not connected to calendar */}
+      {!isCalendarConnected && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Today's Meetings (Manual)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Add your meetings to find free workout slots
+          </Text>
 
-        {manualSchedule.length > 0 && (
-          <View style={styles.meetingsList}>
-            {manualSchedule.map((meeting, index) => (
-              <View key={index} style={styles.meetingItem}>
-                <Text style={styles.meetingTime}>
-                  {meeting.start} - {meeting.end}
-                </Text>
-                <TouchableOpacity onPress={() => removeMeeting(index)}>
-                  <Text style={styles.removeButton}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+          {manualSchedule.length > 0 && (
+            <View style={styles.meetingsList}>
+              {manualSchedule.map((meeting, index) => (
+                <View key={index} style={styles.meetingItem}>
+                  <Text style={styles.meetingTime}>
+                    {meeting.start} - {meeting.end}
+                  </Text>
+                  <TouchableOpacity onPress={() => removeMeeting(index)}>
+                    <Text style={styles.removeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.addMeetingRow}>
+            <TextInput
+              style={styles.meetingTimeInput}
+              value={newMeetingStart}
+              onChangeText={setNewMeetingStart}
+              placeholder="Start (09:00)"
+              placeholderTextColor={COLORS.textLight}
+            />
+            <Text style={styles.timeSeparator}>-</Text>
+            <TextInput
+              style={styles.meetingTimeInput}
+              value={newMeetingEnd}
+              onChangeText={setNewMeetingEnd}
+              placeholder="End (10:00)"
+              placeholderTextColor={COLORS.textLight}
+            />
+            <TouchableOpacity style={styles.addButton} onPress={addMeeting}>
+              <Text style={styles.addButtonText}>Add</Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        <View style={styles.addMeetingRow}>
-          <TextInput
-            style={styles.meetingTimeInput}
-            value={newMeetingStart}
-            onChangeText={setNewMeetingStart}
-            placeholder="Start (09:00)"
-            placeholderTextColor={COLORS.textLight}
-          />
-          <Text style={styles.timeSeparator}>-</Text>
-          <TextInput
-            style={styles.meetingTimeInput}
-            value={newMeetingEnd}
-            onChangeText={setNewMeetingEnd}
-            placeholder="End (10:00)"
-            placeholderTextColor={COLORS.textLight}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addMeeting}>
-            <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      )}
 
       {/* Progress Settings */}
       <View style={styles.section}>
@@ -468,5 +617,60 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  // Calendar connection styles
+  connectButton: {
+    backgroundColor: '#0078D4', // Microsoft blue
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  connectButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  connectedBadge: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+  },
+  connectedText: {
+    color: '#2E7D32',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  calendarActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  syncButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  syncButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  disconnectButton: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
+  },
+  disconnectButtonText: {
+    color: COLORS.secondary,
+    fontWeight: 'bold',
   },
 });
