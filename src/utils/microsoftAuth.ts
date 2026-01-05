@@ -34,7 +34,7 @@ interface StoredTokens {
 
 export const getRedirectUri = () => {
   return AuthSession.makeRedirectUri({
-    scheme: 'com.microworkout.app',
+    scheme: 'microworkout',
     path: 'oauth',
   });
 };

@@ -2,8 +2,9 @@
   "expo": {
     "name": "Micro Workout",
     "slug": "micro-workout",
-    "version": "1.0.0",
+    "version": "1.6.0",
     "orientation": "portrait",
+    "scheme": "microworkout",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -25,6 +26,18 @@
       "permissions": [
         "VIBRATE",
         "RECEIVE_BOOT_COMPLETED"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "microworkout",
+              "host": "oauth"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {
