@@ -40,20 +40,28 @@ export const getRedirectUri = () => {
 };
 
 export const useOutlookAuth = () => {
-  const redirectUri = getRedirectUri();
+  let redirectUri = '';
+  let error: string | null = null;
+
+  try {
+    redirectUri = getRedirectUri();
+  } catch (e) {
+    console.error('Error getting redirect URI:', e);
+    error = 'Failed to initialize calendar authentication';
+  }
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: CLIENT_ID,
       scopes: SCOPES,
-      redirectUri,
+      redirectUri: redirectUri || 'exp://localhost:8081',
       responseType: AuthSession.ResponseType.Code,
       usePKCE: true,
     },
     discovery
   );
 
-  return { request, response, promptAsync };
+  return { request, response, promptAsync, error };
 };
 
 export const exchangeCodeForTokens = async (

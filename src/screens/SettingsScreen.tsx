@@ -64,7 +64,7 @@ export const SettingsScreen: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { request, response, promptAsync } = useOutlookAuth();
+  const { request, response, promptAsync, error: authError } = useOutlookAuth();
 
   // Check auth status on mount
   useEffect(() => {
@@ -248,6 +248,11 @@ export const SettingsScreen: React.FC = () => {
                 <Text style={styles.disconnectButtonText}>Disconnect</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        ) : authError ? (
+          <View style={styles.errorBadge}>
+            <Text style={styles.errorText}>{authError}</Text>
+            <Text style={styles.errorSubtext}>You can still add meetings manually below</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -672,5 +677,23 @@ const styles = StyleSheet.create({
   disconnectButtonText: {
     color: COLORS.secondary,
     fontWeight: 'bold',
+  },
+  errorBadge: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  errorText: {
+    color: '#E65100',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    color: '#FF8A65',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 5,
   },
 });

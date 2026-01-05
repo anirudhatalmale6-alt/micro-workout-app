@@ -123,15 +123,17 @@ export const AppNavigator = () => {
           tabBarInactiveTintColor: COLORS.textLight,
           headerShown: false,
           tabBarStyle: {
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'android' ? 25 : 10,
-            height: Platform.OS === 'android' ? 85 : 70,
+            paddingTop: 10,
+            paddingBottom: Platform.OS === 'android' ? 35 : 10,
+            height: Platform.OS === 'android' ? 100 : 70,
             borderTopWidth: 1,
             borderTopColor: '#E0E0E0',
+            backgroundColor: '#FFFFFF',
           },
           tabBarLabelStyle: {
-            fontSize: 11,
-            marginBottom: Platform.OS === 'android' ? 5 : 0,
+            fontSize: 12,
+            marginBottom: Platform.OS === 'android' ? 8 : 0,
+            fontWeight: '500',
           },
         })}
       >
