@@ -2,7 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Text } from 'react-native';
+import { Text, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   TodayScreen,
@@ -122,12 +123,15 @@ export const AppNavigator = () => {
           tabBarInactiveTintColor: COLORS.textLight,
           headerShown: false,
           tabBarStyle: {
-            paddingTop: 5,
-            paddingBottom: 5,
-            height: 60,
+            paddingTop: 8,
+            paddingBottom: Platform.OS === 'android' ? 25 : 10,
+            height: Platform.OS === 'android' ? 85 : 70,
+            borderTopWidth: 1,
+            borderTopColor: '#E0E0E0',
           },
           tabBarLabelStyle: {
             fontSize: 11,
+            marginBottom: Platform.OS === 'android' ? 5 : 0,
           },
         })}
       >
