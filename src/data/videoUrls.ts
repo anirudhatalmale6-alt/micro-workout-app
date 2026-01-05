@@ -87,8 +87,8 @@ export const exerciseVideos: VideoSource[] = [
   },
   {
     exerciseName: 'Scapular Pull-Ups',
-    youtubeUrl: 'https://www.youtube.com/watch?v=9efgcAjQe7E',
-    description: 'Scapular activation drill',
+    youtubeUrl: 'https://www.youtube.com/watch?v=lYUrTj-uREI',
+    description: 'Scapular activation drill - shoulder blades down and together',
   },
   {
     exerciseName: 'Assisted Pull-Ups',
@@ -97,9 +97,8 @@ export const exerciseVideos: VideoSource[] = [
   },
   {
     exerciseName: 'Negative Pull-Ups',
-    pexelsUrl: 'https://www.pexels.com/search/videos/pull%20up/',
-    youtubeUrl: 'https://www.youtube.com/watch?v=3YvfRx31xDE',
-    description: 'Eccentric pull-up training',
+    youtubeUrl: 'https://www.youtube.com/watch?v=pfqe_-cIdvc',
+    description: 'Eccentric pull-up training - slow controlled lowering',
   },
   {
     exerciseName: 'Chin Over Bar Hold',
